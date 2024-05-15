@@ -22,7 +22,7 @@ Parameters:
     MinValue: 128
     MaxValue: 8192
     Description: "The memory size of Lambda function."
-  EventTimeoutInMillis:
+  ApiGatewayTimeoutInMillis:
     Type: Number
     MinValue: 2
     Default: 30000
@@ -108,7 +108,7 @@ Resources:
             ApiId: !Ref APIGateway
             Method: POST
             Path: /write
-            TimeoutInMillis: !Ref EventTimeoutInMillis
+            TimeoutInMillis: !Ref ApiGatewayTimeoutInMillis
             RouteSettings:
               ThrottlingBurstLimit: !Ref "WriteThrottlingBurstLimit"
 
@@ -118,7 +118,7 @@ Resources:
             ApiId: !Ref APIGateway
             Method: POST
             Path: /read
-            TimeoutInMillis: !Ref EventTimeoutInMillis
+            TimeoutInMillis: !Ref ApiGatewayTimeoutInMillis
             RouteSettings:
               ThrottlingBurstLimit: !Ref "ReadThrottlingBurstLimit"
 
