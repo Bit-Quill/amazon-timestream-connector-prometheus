@@ -281,10 +281,10 @@ The user **deploying** this project **must** have the following permissions list
 				"apigateway:TagResource"
 			],
 			"Resource": [
-                "arn:aws:apigateway:<region>::/apis/*",
-                "arn:aws:apigateway:<region>::/apis",
-                "arn:aws:apigateway:<region>::/tags/*"
-            ]
+				"arn:aws:apigateway:<region>::/apis/*",
+				"arn:aws:apigateway:<region>::/apis",
+				"arn:aws:apigateway:<region>::/tags/*"
+			]
 		},
 		{
 			"Sid": "VisualEditor1",
