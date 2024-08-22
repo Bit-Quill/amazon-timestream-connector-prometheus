@@ -79,12 +79,12 @@ func TestWriteClient(t *testing.T) {
 	}
 	reqBatch := &prompb.WriteRequest{Timeseries: timeSeriesBatch}
 
-    // Request with more than 100 samples
-    var largeTimeSeriesBatch []*prompb.TimeSeries
-    for i := 0; i < largeNumRecords; i++ {
-        largeTimeSeriesBatch = append(largeTimeSeriesBatch, createTimeSeriesTemplate())
-    }
-    largeReqBatch := &prompb.WriteRequest{Timeseries: largeTimeSeriesBatch}
+	// Request with more than 100 samples
+	var largeTimeSeriesBatch []*prompb.TimeSeries
+	for i := 0; i < largeNumRecords; i++ {
+		largeTimeSeriesBatch = append(largeTimeSeriesBatch, createTimeSeriesTemplate())
+	}
+	largeReqBatch := &prompb.WriteRequest{Timeseries: largeTimeSeriesBatch}
 
 	timeSeriesBatchFail := append(timeSeriesBatch, createTimeSeriesTemplate())
 	timeSeriesBatchFail = append(timeSeriesBatchFail, createTimeSeriesTemplate())
@@ -105,7 +105,7 @@ func TestWriteClient(t *testing.T) {
 		{"write request with long metric name", reqLongMetric, awsCredentials},
 		{"write request with long label value", reqLongLabel, awsCredentials},
 		{"write request with 100 samples per request", reqBatch, awsCredentials},
-        {"write request with more than 100 samples per request", largeReqBatch, awsCredentials},
+		{"write request with more than 100 samples per request", largeReqBatch, awsCredentials},
 	}
 	for _, test := range successTestCase {
 		t.Run(test.testName, func(t *testing.T) {
