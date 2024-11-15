@@ -222,7 +222,7 @@ Follow the verification steps in [README.md#verification](../README.md#verificat
 | LambdaTimeoutInSeconds    | The amount of time in seconds to run the connector on AWS Lambda before timing out. | 30                           |
 | ReadThrottlingBurstLimit  | The number of burst read requests per second that API Gateway permits. | 1200                             |
 | WriteThrottlingBurstLimit | The number of burst write requests per second that API Gateway permits. | 1200                             |
-| EnableSigV4Auth | Whether to enable SigV4 authentication for the API Gateway. | false |
+| EnableSigV4Auth | Whether to enable SigV4 authentication for the API Gateway. | true |
 
 ### IAM Permissions Configuration Options
 
