@@ -32,7 +32,7 @@ Parameters:
     AllowedValues:
       - "true"
       - "false"
-    Default: "false"
+    Default: "true"
     Description: "Whether to enable SigV4 authentication with the API Gateway. Defaults to false."
   LambdaTimeoutInSeconds:
     Type: Number
