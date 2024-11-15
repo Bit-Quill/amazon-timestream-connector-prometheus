@@ -24,7 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
-    "github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/go-kit/log"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
@@ -84,7 +84,7 @@ type connectionConfig struct {
 	defaultDatabase           string
 	defaultTable              string
 	enableLogging             bool
-    enableSigV4Auth           bool
+	enableSigV4Auth           bool
 	failOnLongMetricLabelName bool
 	failOnInvalidSample       bool
 	listenAddr                string
@@ -147,21 +147,21 @@ func lambdaHandler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRes
 
 	logger := cfg.createLogger()
 
-    var awsCredentials *credentials.Credentials
-    var ok bool
+	var awsCredentials *credentials.Credentials
+	var ok bool
 
-    // If SigV4 authentication has been enabled, such as when write requests originate
-    // from the OpenTelemetry collector, credentials will be taken from the local environment.
-    // Otherwise, basic auth is used for AWS credentials
-    if cfg.enableSigV4Auth {
-        sess := session.Must(session.NewSession())
-        awsCredentials = sess.Config.Credentials
-    } else {
-        awsCredentials, ok = parseBasicAuth(req.Headers[basicAuthHeader])
-        if !ok {
-            return createErrorResponse(errors.NewParseBasicAuthHeaderError().(*errors.ParseBasicAuthHeaderError).Message())
-        }
-    }
+	// If SigV4 authentication has been enabled, such as when write requests originate
+	// from the OpenTelemetry collector, credentials will be taken from the local environment.
+	// Otherwise, basic auth is used for AWS credentials
+	if cfg.enableSigV4Auth {
+		sess := session.Must(session.NewSession())
+		awsCredentials = sess.Config.Credentials
+	} else {
+		awsCredentials, ok = parseBasicAuth(req.Headers[basicAuthHeader])
+		if !ok {
+			return createErrorResponse(errors.NewParseBasicAuthHeaderError().(*errors.ParseBasicAuthHeaderError).Message())
+		}
+	}
 
 	awsConfigs := cfg.buildAWSConfig()
 	timestreamClient := timestream.NewBaseClient(cfg.defaultDatabase, cfg.defaultTable)
@@ -317,12 +317,12 @@ func (cfg *connectionConfig) parseBoolFromStrings(enableLogging, failOnLongMetri
 		return timestreamError
 	}
 
-    cfg.enableSigV4Auth, err = strconv.ParseBool(enableSigV4Auth)
-    if err != nil {
+	cfg.enableSigV4Auth, err = strconv.ParseBool(enableSigV4Auth)
+	if err != nil {
 		timestreamError := errors.NewParseSampleOptionError(failOnInvalidSample)
 		fmt.Println(timestreamError.Error())
 		return timestreamError
-    }
+	}
 
 	return nil
 }
@@ -377,7 +377,7 @@ func parseFlags() *connectionConfig {
 	}
 
 	var enableLogging string
-    var enableSigV4Auth string
+	var enableSigV4Auth string
 	var failOnLongMetricLabelName string
 	var failOnInvalidSample string
 
@@ -394,7 +394,7 @@ func parseFlags() *connectionConfig {
 		Default(failOnInvalidSampleConfig.defaultValue).StringVar(&failOnInvalidSample)
 	a.Flag(certificateConfig.flag, "TLS server certificate file.").Default(certificateConfig.defaultValue).StringVar(&cfg.certificate)
 	a.Flag(keyConfig.flag, "TLS server private key file.").Default(keyConfig.defaultValue).StringVar(&cfg.key)
-    a.Flag(enableSigV4AuthConfig.flag, "Whether to enable SigV4 authentication with the API Gateway. Default to 'false'.").Default(enableSigV4AuthConfig.defaultValue).StringVar(&enableSigV4Auth)
+	a.Flag(enableSigV4AuthConfig.flag, "Whether to enable SigV4 authentication with the API Gateway. Default to 'false'.").Default(enableSigV4AuthConfig.defaultValue).StringVar(&enableSigV4Auth)
 
 	flag.AddFlags(a, &cfg.promlogConfig)
 
