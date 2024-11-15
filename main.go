@@ -394,7 +394,7 @@ func parseFlags() *connectionConfig {
 		Default(failOnInvalidSampleConfig.defaultValue).StringVar(&failOnInvalidSample)
 	a.Flag(certificateConfig.flag, "TLS server certificate file.").Default(certificateConfig.defaultValue).StringVar(&cfg.certificate)
 	a.Flag(keyConfig.flag, "TLS server private key file.").Default(keyConfig.defaultValue).StringVar(&cfg.key)
-    a.Flag(keyConfig.flag, "Whether to enable SigV4 authentication with the API Gateway. Default to 'false'.").Default(enableSigV4AuthConfig.defaultValue).StringVar(&enableSigV4Auth)
+    a.Flag(enableSigV4AuthConfig.flag, "Whether to enable SigV4 authentication with the API Gateway. Default to 'false'.").Default(enableSigV4AuthConfig.defaultValue).StringVar(&enableSigV4Auth)
 
 	flag.AddFlags(a, &cfg.promlogConfig)
 
