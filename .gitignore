@@ -4,3 +4,6 @@
 integration/tls/cert
 resources
 timestream-prometheus-connector
+darwin
+linux
+windows
