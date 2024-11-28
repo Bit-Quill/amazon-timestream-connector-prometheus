@@ -566,7 +566,12 @@ func (qc *QueryClient) buildCommands(queries []*prompb.Query) ([]*timestreamquer
 		}
 
 		timestreamQueries = append(timestreamQueries, &timestreamquery.QueryInput{
-			QueryString: aws.String(fmt.Sprintf("SELECT * FROM %s.%s WHERE %v", qc.client.defaultDataBase, qc.client.defaultTable, strings.Join(matchers, " AND "))),
+			QueryString: aws.String(fmt.Sprintf(
+				"SELECT * FROM \"%s\".\"%s\" WHERE %s",
+				qc.client.defaultDataBase,
+				qc.client.defaultTable,
+				strings.Join(matchers, " AND "),
+			)),
 		})
 	}
 
