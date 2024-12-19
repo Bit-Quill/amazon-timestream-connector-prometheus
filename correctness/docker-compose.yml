@@ -1,0 +1,32 @@
+services:
+  mockmetheus:
+    container_name: mockmetheus
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: ["sleep", "infinity"]
+    environment:
+      AWS_ACCESS_KEY_ID: "XXXXXXXXX"
+      AWS_SECRET_ACCESS_KEY: "XXXXXXXXX"
+      CONNECTOR_URL: "http://connector:9201"
+      FRESH_TSDB: False
+    networks:
+      - correctness_network
+
+  connector:
+    container_name: connector
+    build: ../
+    expose:
+      - "9201"
+    command:
+      - --default-database=CorrDB
+      - --default-table=CorrMetrics
+      - --region=us-west-2
+      - --log.level=debug
+    networks:
+      - correctness_network
+
+networks:
+  correctness_network:
+    driver: bridge
