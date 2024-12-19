@@ -4,3 +4,4 @@
 integration/tls/cert
 resources
 timestream-prometheus-connector
+*__pycache__/

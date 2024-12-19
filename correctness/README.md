@@ -1,18 +1,21 @@
 # Correctness Testing for Prometheus Connector
 
 ## Prerequisites
-Prior to running the tests in correctness_test.go, ensure the following:
-1. Have a database called correctness_testing with the table named correctness_testing created.
-2. Ingested data to the correctness_testing table for at least an hour.
-3. Updated the basic_auth section within [correctness_testing.yml](./config/correctness_testing.yml).
-2. Download or build the Prometheus Connector Docker image and store it in a new directory named `resources` in the repository root.
-
-## How to build and save the docker image
-1. Execute the following command to build the docker image:
-`docker buildx build . -t timestream-prometheus-connector-docker`
-2. Execute the following command to save the docker image as a compressed file and update the `version` appropriately:
-`docker save timestream-prometheus-connector-docker | gzip > timestream-prometheus-connector-docker-image-<version>.tar.gz`
+1. Ensure your docker version is >= `20.10.0`, or you have `docker-compose` installed
+2. Update `docker-compose.yml` in this directory with your AWS credentials
 
 ## How to execute tests
-1. Run the following command to execute the correctness tests:
-`go test -v ./correctness`
+1. Bring up containers with `docker compose up -d`
+2. Run tests with `docker exec -it mockmetheus pytest`
+
+### Notes
+
+The stub (`prom_pb2.py`) is generated using:
+
+`protoc --python_out=. prom.proto`
+
+### Resources:
+
+Referenced Prometheus protobuf definitions:
+- https://github.com/prometheus/prometheus/blob/main/prompb/remote.proto
+- https://github.com/prometheus/prometheus/blob/main/prompb/types.proto
