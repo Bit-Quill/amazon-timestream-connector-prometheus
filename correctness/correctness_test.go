@@ -37,7 +37,7 @@ var ingestionWaitTime time.Duration
 var m *Mockmetheus
 
 func init() {
-	flag.BoolVar(&freshTSDB, "freshTSDB", true, "Use a fresh Timestream DB")
+	flag.BoolVar(&freshTSDB, "freshTSDB", false, "Use a fresh Timestream DB")
 	flag.DurationVar(&ingestionWaitTime, "ingestionWaitTime", 1*time.Second, "Delay to wait for data ingestion.")
 }
 

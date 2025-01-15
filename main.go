@@ -21,6 +21,8 @@ import (
 	"encoding/base64"
 	goErrors "errors"
 	"fmt"
+    "github.com/aws/aws-xray-sdk-go/xray"
+    "github.com/aws/aws-xray-sdk-go/strategy/sampling"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
@@ -133,6 +135,26 @@ func main() {
 			timestream.LogError(logger, "Failed to build AWS configuration for write", err)
 			os.Exit(1)
 		}
+
+		fmt.Println("Starting xray..")
+
+		s, _ := sampling.NewLocalizedStrategyFromFilePath("/home/sampling.json") // path to local sampling json
+
+	    // Initialize the X-Ray recorder
+	    xray.Configure(xray.Config{
+	        DaemonAddr:     "host.docker.internal:2000", // X-Ray daemon address
+	        SamplingStrategy: s,
+	        // ServiceVersion: "1.2.3",
+	    })
+
+
+	    // Create an HTTP client and wrap it with X-Ray
+	    httpClient := &http.Client{}
+	    xrayClient := xray.Client(httpClient)
+
+	    // Set the HTTP client in the AWS configuration
+	    awsQueryConfigs.HTTPClient = xrayClient
+	    awsWriteConfigs.HTTPClient = xrayClient
 
 		timestreamClient := timestream.NewBaseClient(cfg.defaultDatabase, cfg.defaultTable)
 		timestreamClient.NewQueryClient(logger, awsQueryConfigs)

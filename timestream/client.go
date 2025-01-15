@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+    "github.com/aws/aws-xray-sdk-go/xray"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/middleware"
 	"github.com/aws/aws-sdk-go-v2/service/timestreamquery"
@@ -219,67 +220,113 @@ func (c *Client) NewWriteClient(logger log.Logger, configs aws.Config, failOnLon
 		),
 	}
 }
-
 // Write sends the prompb.WriteRequest to timestreamwriteiface.TimestreamWriteAPI
 func (wc *WriteClient) Write(ctx context.Context, req *prompb.WriteRequest, credentialsProvider aws.CredentialsProvider) error {
-	wc.config.Credentials = credentialsProvider
-	var err error
-	wc.timestreamWrite, err = initWriteClient(wc.config)
-	if err != nil {
-		LogError(wc.logger, "Unable to construct a new session with the given credentials.", err)
-		return err
-	}
-	LogInfo(wc.logger, fmt.Sprintf("%d records requested for ingestion from Prometheus.", len(req.Timeseries)))
+    // Begin the main segment for the Write operation
+    ctx, mainSeg := xray.BeginSegment(ctx, "WriteClient.Write")
+    defer mainSeg.Close(nil) // Ensure the main segment is closed when the function exits
 
-	recordMap := make(recordDestinationMap)
-	recordMap, err = wc.convertToRecords(req.Timeseries, recordMap)
-	if err != nil {
-		LogError(wc.logger, "Unable to convert the received Prometheus write request to Timestream Records.", err)
-		return err
-	}
+    wc.config.Credentials = credentialsProvider
+    var err error
 
-	var sdkErr error
-	for database, tableMap := range recordMap {
-		for table, records := range tableMap {
-			recordLen := len(records)
-			// Timestream will return an error if more than 100 records are sent in a batch.
-			// Therefore, records should be chunked if there are more than 100 of them
-			for chunkStartIndex := 0; chunkStartIndex < recordLen; chunkStartIndex += maxWriteBatchLength {
-				chunkEndIndex := chunkStartIndex + maxWriteBatchLength
-				if chunkEndIndex > recordLen {
-					chunkEndIndex = recordLen
-				}
+    // Subsegment for initializing the write client
+    _, initSeg := xray.BeginSubsegment(ctx, "InitializeWriteClient")
+    wc.timestreamWrite, err = initWriteClient(wc.config)
+    if err != nil {
+        LogError(wc.logger, "Unable to construct a new session with the given credentials.", err)
+        initSeg.AddError(err)
+        initSeg.Close(err)
+        return err
+    }
+    initSeg.Close(nil)
 
-				currentChunkSize := chunkEndIndex - chunkStartIndex
+    LogInfo(wc.logger, fmt.Sprintf("%d records requested for ingestion from Prometheus.", len(req.Timeseries)))
 
-				writeRecordsInput := &timestreamwrite.WriteRecordsInput{
-					DatabaseName: aws.String(database),
-					TableName:    aws.String(table),
-					Records:      records[chunkStartIndex:chunkEndIndex],
-				}
+    // Subsegment for converting Prometheus write requests to Timestream records
+    _, convertSeg := xray.BeginSubsegment(ctx, "ConvertToRecords")
+    recordMap := make(recordDestinationMap)
+    recordMap, err = wc.convertToRecords(req.Timeseries, recordMap)
+    if err != nil {
+        LogError(wc.logger, "Unable to convert the received Prometheus write request to Timestream Records.", err)
+        convertSeg.AddError(err)
+        convertSeg.Close(err)
+        return err
+    }
+    convertSeg.Close(nil)
 
-				begin := time.Now()
-				_, err = wc.timestreamWrite.WriteRecords(ctx, writeRecordsInput)
-				duration := time.Since(begin).Seconds()
+    var sdkErr error
+    for database, tableMap := range recordMap {
+        for table, records := range tableMap {
+            recordLen := len(records)
 
-				if err != nil {
-					sdkErr = wc.handleSDKErr(req, err, sdkErr)
-				} else {
-					LogInfo(wc.logger, fmt.Sprintf("Successfully wrote %d records to Database: %s, Table: %s", currentChunkSize, database, table))
+            // Subsegment for processing each table
+            _, tableSeg := xray.BeginSubsegment(ctx, fmt.Sprintf("ProcessTable_%s_%s", database, table))
+            defer tableSeg.Close(nil) // Ensure the table subsegment is closed
 
-					recordsIgnored := getCounterValue(wc.ignoredSamples)
-					if recordsIgnored > 0 {
-						LogInfo(wc.logger, fmt.Sprintf("%d records were rejected for ingestion to Timestream. See Troubleshooting in the README for possible reasons, or enable debug logging for more details.", recordsIgnored))
-					}
-				}
+            // Timestream limits to 100 records per batch, so we chunk them accordingly
+            for chunkStartIndex := 0; chunkStartIndex < recordLen; chunkStartIndex += maxWriteBatchLength {
+                chunkEndIndex := chunkStartIndex + maxWriteBatchLength
+                if chunkEndIndex > recordLen {
+                    chunkEndIndex = recordLen
+                }
 
-				wc.writeExecutionTime.Observe(duration)
-				wc.writeRequests.Inc()
-			}
-		}
-	}
+                currentChunkSize := chunkEndIndex - chunkStartIndex
 
-	return sdkErr
+                writeRecordsInput := &timestreamwrite.WriteRecordsInput{
+                    DatabaseName: aws.String(database),
+                    TableName:    aws.String(table),
+                    Records:      records[chunkStartIndex:chunkEndIndex],
+                }
+
+                // Start timing the write operation
+                begin := time.Now()
+
+                // Begin a subsegment for the WriteRecords operation
+                writeSubCtx, writeSeg := xray.BeginSubsegment(ctx, "WriteRecords")
+                // Add annotations for better trace filtering
+                writeSeg.AddAnnotation("Database", database)
+                writeSeg.AddAnnotation("Table", table)
+                writeSeg.AddAnnotation("RecordCount", currentChunkSize)
+
+                // Perform the WriteRecords operation within the subsegment
+                _, err = wc.timestreamWrite.WriteRecords(writeSubCtx, writeRecordsInput)
+
+                // Calculate the duration
+                duration := time.Since(begin).Seconds()
+
+                if err != nil {
+                    // Add error information to the subsegment
+                    writeSeg.AddError(err)
+                    sdkErr = wc.handleSDKErr(req, err, sdkErr)
+                } else {
+                    LogInfo(wc.logger, fmt.Sprintf("Successfully wrote %d records to Database: %s, Table: %s", currentChunkSize, database, table))
+
+                    recordsIgnored := getCounterValue(wc.ignoredSamples)
+                    if recordsIgnored > 0 {
+                        LogInfo(wc.logger, fmt.Sprintf("%d records were rejected for ingestion to Timestream. See Troubleshooting in the README for possible reasons, or enable debug logging for more details.", recordsIgnored))
+                    }
+                }
+
+                // Add the duration as metadata
+                writeSeg.AddMetadata("WriteDurationSeconds", duration)
+
+                // Close the WriteRecords subsegment with the error (if any)
+                writeSeg.Close(err)
+
+                // Record metrics
+                wc.writeExecutionTime.Observe(duration)
+                wc.writeRequests.Inc()
+            }
+
+            // Close the table subsegment
+            tableSeg.Close(nil)
+        }
+    }
+
+    // Close the main segment
+    mainSeg.Close(nil)
+
+    return sdkErr
 }
 
 // Read converts the Prometheus prompb.ReadRequest into Timestream queries and return
@@ -289,18 +336,34 @@ func (qc *QueryClient) Read(
 	req *prompb.ReadRequest,
 	credentialsProvider aws.CredentialsProvider,
 ) (*prompb.ReadResponse, error) {
+	// Begin the main segment for the Read operation
+	ctx, mainSeg := xray.BeginSegment(ctx, "QueryClient.Read")
+	defer mainSeg.Close(nil) // Ensure the main segment is closed when the function exits
+
 	qc.config.Credentials = credentialsProvider
 	var err error
+
+	// Subsegment for initializing the query client
+	_, initSeg := xray.BeginSubsegment(ctx, "InitializeQueryClient")
 	qc.timestreamQuery, err = initQueryClient(qc.config)
 	if err != nil {
 		LogError(qc.logger, "Unable to construct a new session with the given credentials", err)
+		initSeg.AddError(err)
+		initSeg.Close(err)
 		return nil, err
 	}
+	initSeg.Close(nil)
+
+	// Subsegment for building query commands
+	_, buildSeg := xray.BeginSubsegment(ctx, "BuildQueryCommands")
 	queryInputs, isRelatedToRegex, err := qc.buildCommands(req.Queries)
 	if err != nil {
 		LogError(qc.logger, "Error occurred while translating Prometheus query.", err)
+		buildSeg.AddError(err)
+		buildSeg.Close(err)
 		return nil, err
 	}
+	buildSeg.Close(nil)
 
 	results := []*prompb.QueryResult{{}}
 	resultSet := results[0]
@@ -308,28 +371,60 @@ func (qc *QueryClient) Read(
 	begin := time.Now()
 	var queryPageError error
 
+	// Subsegment for processing queries
+	processSubseg, processSeg := xray.BeginSubsegment(ctx, "ProcessQueries")
+
 	for idx, queryInput := range queryInputs {
+		// Subsegment for each individual query
+		querySubseg, querySeg := xray.BeginSubsegment(processSubseg, fmt.Sprintf("ProcessQuery_%d", idx))
+
 		paginator := initPaginatorFactory(qc.timestreamQuery, queryInput)
+
 		for paginator.HasMorePages() {
-			page, err := paginator.NextPage(ctx)
+			// Subsegment for fetching the next page
+			pageSubseg, pageSeg := xray.BeginSubsegment(querySubseg, "FetchNextPage")
+			page, err := paginator.NextPage(pageSubseg)
 			if err != nil {
 				queryPageError = err
 				LogError(qc.logger, "Error occurred while fetching the next page of results.", err)
-				break
-			}
 
+				// Add error information to the page subsegment
+				pageSeg.AddError(err)
+				pageSeg.Close(err)
+
+				// Close the query subsegment with the error
+				querySeg.Close(err)
+
+				// Close the process subsegment with the error
+				processSeg.Close(err)
+
+				return nil, err
+			}
+			pageSeg.Close(nil)
+
+			// Subsegment for converting Timestream results to Prometheus results
+			_, convertSeg := xray.BeginSubsegment(querySubseg, "ConvertToResult")
 			resultSet, err = qc.convertToResult(resultSet, page)
 			qc.readRequests.Inc()
 			if err != nil {
 				LogError(qc.logger, "Error occurred while converting the Timestream query results to Prometheus QueryResults", err)
+
+				convertSeg.AddError(err)
+				convertSeg.Close(err)
+
+				// Close the query subsegment with the error
+				querySeg.Close(err)
+
+				// Close the process subsegment with the error
+				processSeg.Close(err)
+
 				return nil, err
 			}
-
+			convertSeg.Close(nil)
 		}
 
+		// Handle specific errors after processing pages
 		if queryPageError != nil {
-			// If columns are missing, Timestream's strict schema validation throws an OperationError exception.
-			// Return an empty set to ensure compatibility with Prometheus behavior.
 			var opError *smithy.OperationError
 			if goErrors.As(queryPageError, &opError) {
 				underlyingErr := opError.Unwrap()
@@ -346,16 +441,35 @@ func (qc *QueryClient) Read(
 			var apiError *smithy.GenericAPIError
 			if goErrors.As(queryPageError, &apiError) && apiError.Code == "ValidationException" && isRelatedToRegex {
 				LogError(qc.logger, "Error occurred due to unsupported query. Please validate the regular expression used in the query. Check the documentation for unsupported RE2 syntax.", queryPageError)
+				querySeg.AddError(queryPageError)
+				querySeg.Close(queryPageError)
+				processSeg.Close(queryPageError)
 				return nil, queryPageError
 			}
 
 			LogError(qc.logger, "Error occurred while querying Timestream pages.", queryPageError)
+			querySeg.AddError(queryPageError)
+			querySeg.Close(queryPageError)
+			processSeg.Close(queryPageError)
 			return nil, queryPageError
 		}
+
+		// Close the individual query subsegment
+		querySeg.Close(nil)
 	}
 
+	// Close the process subsegment
+	processSeg.Close(nil)
+
+	// Calculate and record the duration
 	duration := time.Since(begin).Seconds()
+	mainSeg.AddMetadata("ReadDurationSeconds", duration)
+
+	// Record metrics
 	qc.readExecutionTime.Observe(duration)
+
+	// Close the main segment
+	mainSeg.Close(nil)
 
 	return &prompb.ReadResponse{
 		Results: results,
