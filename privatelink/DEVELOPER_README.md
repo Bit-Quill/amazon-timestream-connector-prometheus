@@ -140,7 +140,7 @@ The password file must contain only the value for *aws_secret_access_key*.
 
 3. Run the following command to pull the Prometheus image:
 ```shell
-dcd ~/prom && dc pull
+cd ~/prom && dc pull
 ```
 
 #### Configure Prometheus Connector
