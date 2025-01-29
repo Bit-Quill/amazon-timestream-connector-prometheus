@@ -63,13 +63,13 @@ Deploy the EC2 instance. This is where we will setup Prometheus and the Promethe
 
 Once the EC2 instance has been successfully deployed (you may have to wait a few minutes after deployment for the instance to finish booting up), connect using AWS SSM:
 
-```
+```shell
 aws ssm start-session --target i-<INSTANCE_ID>
 ``` 
 
 ### 3. Configure environment
 
-From within the EC2 instance, first run the following command:
+From within the EC2 instance, run the following command to configure docker & docker-compose:
 ```
 sudo usermod -aG docker ssm-user
 sudo newgrp docker
@@ -79,13 +79,13 @@ export PATH=$PATH:/usr/local/bin
 
 #### Configure Prometheus
 
-1. `cd ~ && mkdir prom`
-2. `touch prom/passwordFile && touch prom/prom.yml && touch prom/docker-compose.yaml`
+1. `mkdir ~/prom`
+2. `touch ~/prom/{passwordFile,prom.yml,docker-compose.yaml}`
 
 And fill in the above files with the following configs:
 
 `docker-compose.yml`:
-```
+```yaml
 services:
   prometheus:
     image: prom/prometheus
@@ -94,7 +94,7 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./awsSecret:/etc/prometheus/passwordFile
+      - ./passwordFile:/etc/prometheus/passwordFile
       - ./prom.yml:/etc/prometheus/prometheus.yml
     networks:
       - aws_network
@@ -105,7 +105,7 @@ networks:
 ```
 
 `prom.yml`:
-  ```yaml
+```yaml
    scrape_configs:
      - job_name: 'prometheus'
        scrape_interval:    15s
@@ -127,34 +127,39 @@ networks:
      basic_auth:
          username: accessKey
          password_file: passwordFile
-   ```
+```
 
 Replace `accessKey` with your AWS Access key.
 
 `passwordFile`:
-```yaml
+```
 <aws_secret_access_key>
 ```
 
-The password file must contain only the value for the *aws_secret_access_key*.
+The password file must contain only the value for *aws_secret_access_key*.
+
+3. Run the following command to pull the Prometheus image:
+```shell
+dcd ~/prom && dc pull
+```
 
 #### Configure Prometheus Connector
 
 You can build the Prometheus Connector from source or pull a pre-built docker image.
 
-#### Building from source
+##### Building from source
 
 1. Clone the repo and check out the `dev-privatelink` branch.
-2. Update `./privatelink/docker-compose.yaml` (in this directory) with your AWS configs and assigned cell endpoints.
+2. Update `./privatelink/docker-compose.yaml` with your Timestream database and table, region and assigned cell endpoints.
 2. `cd ./privatelink` and run `dc build`.
 
-#### Using pre-built docker image
+##### Using pre-built docker image
 
-1. `mkdir ~/connector && cd ~/connector`
-2. `touch docker-compose.yaml`
+1. `mkdir ~/connector`
+2. `touch ~/connector/docker-compose.yaml`
 
 `docker-compose.yaml`:
-```
+```yaml
 services:
   timestream-prometheus-connector:
     container_name: connector
@@ -179,7 +184,10 @@ networks:
 ```
 Where `<QUERY_CELL>`, `<WRITE_CELL>` are your assigned cells from the pre-requisite steps.
 
-3. `dc pull`
+3. Run the following command to pull the Prometheus Connector image:
+```shell
+cd ~/connector && dc pull
+```
 
 Your EC2 instance is now fully configured and you can safely revoke internet access for your VPC.
 
@@ -205,16 +213,15 @@ You can now bring up Prometheus and the Prometheus Connector to verify ingestion
 
 2. `dc up -d`
 
-#### Launch Prometheus
+#### Start Prometheus
 
 1. `cd ~/prom`
 2. `dc up -d`
 
 #### Verify ingestion
 
-
 You can observe the logs from containers, or use the following command to confirm that Prometheus data is being ingested to Timestream through the Prometheus Connector.
 
-```
-aws timestream-query query --query-string "SELECT count() FROM DevPrometheusDatabase.DevPrometheusMetricsTable" --region us-west-2
+```shell
+aws timestream-query query --query-string "SELECT count() FROM <PrometheusDatabase>.<PrometheusMetricsTable>" --region <AWS_REGION>
 ```

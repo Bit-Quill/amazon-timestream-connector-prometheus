@@ -1,7 +1,8 @@
 services:
   timestream-prometheus-connector:
     container_name: connector
-    image: fpimproving/amazon-timestream-connector-prometheus:privatelink
+    build: ..
+    # image: fpimproving/amazon-timestream-connector-prometheus:privatelink
     ports:
       - "9201:9201"
     command:
