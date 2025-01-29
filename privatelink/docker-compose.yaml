@@ -1,7 +1,7 @@
 services:
   timestream-prometheus-connector:
     container_name: connector
-    build: ..
+    image: fpimproving/amazon-timestream-connector-prometheus:privatelink
     ports:
       - "9201:9201"
     command:
@@ -9,8 +9,8 @@ services:
       - --default-table=${DEFAULT_TABLE:-DevPrometheusMetricsTable}
       - --region=${AWS_REGION:-us-west-2}
       - --log.level=debug
-      - --read-base-endpoint=https://query-cell1.timestream.us-west-2.amazonaws.com
-      - --write-base-endpoint=https://ingest-cell1.timestream.us-west-2.amazonaws.com
+      - --read-base-endpoint=https://${QUERY_CELL:-query-cell1}.timestream.${AWS_REGION:-us-west-2}.amazonaws.com
+      - --write-base-endpoint=https://${INGEST_CELL:-ingest-cell1}.timestream.${AWS_REGION:-us-west-2}.amazonaws.com
     environment:
       AWS_ENABLE_ENDPOINT_DISCOVERY: false
     networks:
