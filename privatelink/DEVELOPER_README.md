@@ -45,7 +45,7 @@ Take note of your assigned cells (`ingest-cell1` for the above example) for both
 
 ## Deployment
 
-The following SAM template deploys an EC2 instance along with required VPC endpoints and resources for launching Prometheus and the Prometheus connector.
+The following SAM template deploys an EC2 instance along with required VPC endpoints and resources for launching Prometheus and the Prometheus Connector.
 
 From your existing VPC, you will need the following values:
 - VPC ID: This is the ID of your existing VPC
@@ -157,7 +157,7 @@ Once you have successfully logged in, you are now able to pull images from ECR t
 
 To deploy the Prometheus Connector from within the EC2, set the following environment variables to configure your existing Timestream database, region, and assigned cells:
 
-- `DEFAULT_DATABASE`: Specifies the default Timestream database for the Prometheus connector.
+- `DEFAULT_DATABASE`: Specifies the default Timestream database for the Prometheus Connector.
 - `DEFAULT_TABLE`: Specifies the default table for storing Prometheus metrics.
 - `AWS_REGION`: Defines the AWS region.
 - `QUERY_CELL`: Defines the query endpoint cell for Timestream.
@@ -249,13 +249,13 @@ docker logs prom -f
 ```
 #### Verify ingestion
 
-You can observe the logs from containers, or use `awscli` from your local machine to directly confirm that Prometheus data is being ingested to Timestream through the Prometheus Connector.
+You can observe the logs from containers, or use `awscli` from your local machine to confirm that Prometheus data is being ingested to Timestream through the Prometheus Connector.
 
 ```shell
 aws timestream-query query --query-string "SELECT count() FROM <PrometheusDatabase>.<PrometheusMetricsTable>" --region <AWS_REGION>
 ```
 
-To view the Prometheus expression browser locally, you can connect to your EC2 with port-forwarding:
+To view the Prometheus expression browser locally, establish a port-forwarding connection to your EC2 instance:
 ```
  aws ssm start-session --target i-<INSTANCE_ID> --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["9090"],"localPortNumber":["9090"]}'
 ```
