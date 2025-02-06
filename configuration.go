@@ -35,7 +35,7 @@ var (
 	defaultDatabaseConfig     = &configuration{flag: "default-database", envFlag: "default_database", defaultValue: ""}
 	defaultTableConfig        = &configuration{flag: "default-table", envFlag: "default_table", defaultValue: ""}
 	enableSigV4AuthConfig     = &configuration{flag: "enable-sigv4-auth", envFlag: "enable_sigv4_auth", defaultValue: "true"}
-	readBaseEndpointConfig    = &configuration{flag: "read-base-endpoint", envFlag: "read_base_endpoint", defaultValue: ""}
+	queryBaseEndpointConfig   = &configuration{flag: "query-base-endpoint", envFlag: "query_base_endpoint", defaultValue: ""}
 	writeBaseEndpointConfig   = &configuration{flag: "write-base-endpoint", envFlag: "write_base_endpoint", defaultValue: ""}
 	listenAddrConfig          = &configuration{flag: "web.listen-address", envFlag: "", defaultValue: ":9201"}
 	telemetryPathConfig       = &configuration{flag: "web.telemetry-path", envFlag: "", defaultValue: "/metrics"}

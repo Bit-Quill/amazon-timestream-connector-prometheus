@@ -103,7 +103,7 @@ type connectionConfig struct {
 	telemetryPath             string
 	maxReadRetries            int
 	maxWriteRetries           int
-	readBaseEndpoint          string
+	queryBaseEndpoint         string
 	writeBaseEndpoint         string
 	certificate               string
 	key                       string
@@ -125,7 +125,7 @@ func main() {
 
 		ctx := context.Background()
 
-		awsQueryConfigs, err := cfg.buildAWSConfig(ctx, cfg.maxReadRetries, cfg.readBaseEndpoint)
+		awsQueryConfigs, err := cfg.buildAWSConfig(ctx, cfg.maxReadRetries, cfg.queryBaseEndpoint)
 		if err != nil {
 			timestream.LogError(logger, "Failed to build AWS configuration for query", err)
 			os.Exit(1)
@@ -188,7 +188,7 @@ func lambdaHandler(req events.APIGatewayProxyRequest) (events.APIGatewayProxyRes
 			return createErrorResponse(errors.NewParseBasicAuthHeaderError().(*errors.ParseBasicAuthHeaderError).Message())
 		}
 	}
-	awsQueryConfigs, err := cfg.buildAWSConfig(ctx, cfg.maxReadRetries, cfg.readBaseEndpoint)
+	awsQueryConfigs, err := cfg.buildAWSConfig(ctx, cfg.maxReadRetries, cfg.queryBaseEndpoint)
 	if err != nil {
 		timestream.LogError(logger, "Failed to build AWS configuration for query", err)
 		os.Exit(1)
@@ -397,7 +397,7 @@ func parseEnvironmentVariables() (*connectionConfig, error) {
 		return nil, errors.NewParseRetriesError(writeRetries, "write")
 	}
 
-	cfg.readBaseEndpoint = getOrDefault(readBaseEndpointConfig)
+	cfg.queryBaseEndpoint = getOrDefault(queryBaseEndpointConfig)
 	cfg.writeBaseEndpoint = getOrDefault(writeBaseEndpointConfig)
 
 	cfg.promlogConfig = promlog.Config{Level: &promlog.AllowedLevel{}, Format: &promlog.AllowedFormat{}}
@@ -437,8 +437,8 @@ func parseFlags() *connectionConfig {
 	a.Flag(certificateConfig.flag, "TLS server certificate file.").Default(certificateConfig.defaultValue).StringVar(&cfg.certificate)
 	a.Flag(keyConfig.flag, "TLS server private key file.").Default(keyConfig.defaultValue).StringVar(&cfg.key)
 	a.Flag(enableSigV4AuthConfig.flag, "Whether to enable SigV4 authentication with the API Gateway. Default to 'false'.").Default(enableSigV4AuthConfig.defaultValue).StringVar(&enableSigV4Auth)
-	a.Flag(readBaseEndpointConfig.flag, "Override the default Timestream query endpoint (e.g., a VPC Endpoint).").
-		Default(readBaseEndpointConfig.defaultValue).StringVar(&cfg.readBaseEndpoint)
+	a.Flag(queryBaseEndpointConfig.flag, "Override the default Timestream query endpoint (e.g., a VPC Endpoint).").
+		Default(queryBaseEndpointConfig.defaultValue).StringVar(&cfg.queryBaseEndpoint)
 	a.Flag(writeBaseEndpointConfig.flag, "Override the default Timestream write endpoint (e.g., a VPC Endpoint).").
 		Default(writeBaseEndpointConfig.defaultValue).StringVar(&cfg.writeBaseEndpoint)
 

@@ -2,21 +2,22 @@
 
 ## Overview
 
-This guide explains how to set up the Prometheus Connector to send data to Amazon Timestream from within an isolated VPC environment. The setup process involves:
+This guide explains how to set up Prometheus and the Prometheus Connector to ingest data to Amazon Timestream from within an isolated VPC environment using [AWS PrivateLink](https://aws.amazon.com/privatelink/).
 
-1. Creating a VPC and deploying an EC2 instance within a private subnet
-2. Temporarily enabling internet access to download necessary code and dependencies
-3. Revoking internet access to create a fully isolated environment
-4. Establishing connectivity between the Prometheus Connector and Amazon Timestream using AWS PrivateLink through VPC endpoints
+This [serverless application](https://aws.amazon.com/serverless/) consists of the following:
+- [Amazon EC2](https://aws.amazon.com/ec2/getting-started/) instance that will host Prometheus and the Prometheus Connector.
+- [VPC Endpoints](https://docs.aws.amazon.com/whitepapers/latest/aws-privatelink/what-are-vpc-endpoints.html) for securely communicating with AWS services using PrivateLink.
+- [Amazon ECR](https://aws.amazon.com/ecr/getting-started/) to store docker images that will be deployed in the EC2 instance.
 
-This architecture demonstrates secure data ingestion from Prometheus to Timestream without requiring public internet access.
+This application assumes that the VPC in which the template will be deployed has no internet access and ensures that all communication stays within Amazon's internal network.
 
-## Pre-requisites
+## Prerequisites
 
+1. An existing VPC with at least two private subnets and route tables.
 1. An existing Timestream database and table.
-2. Read and write cells for your Timestream account.
+2. Read and write cells for your Timestream account. Amazon routes requests to the write and query endpoints of the cell that your account has been mapped to for a given region. 
 
-To get your assigned cell endpoint:
+To get your assigned cells using `awscli`:
 
 For read endpoint:
 ```
@@ -43,185 +44,249 @@ Take note of your assigned cells (`ingest-cell1` for the above example) for both
 
 
 ## Deployment
-### 1. Deploy VPC
 
-Deploy the VPC using the `./vpc/full-vpc.yml` template.
+The following SAM template deploys an EC2 instance along with required VPC endpoints and resources for launching Prometheus and the Prometheus connector.
 
-1. `cd ./vpc`
-2. `sam deploy -t full-vpc.yml --parameter-overrides "TimestreamQueryCell=<QUERY_CELL> TimestreamWriteCell=<WRITE_CELL>"`
+From your existing VPC, you will need the following values:
+- VPC ID: This is the ID of your existing VPC
+- VPC CIDR : This is the CIDR range for your VPC
+- Private Subnet IDs: This is where the EC2 instance and VPC endpoints will be deployed
+- Private Route Table IDs: This is how the [S3 Gateway endpoint](https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-s3.html) will resolve requests
+- Query and Write cells: These are your assigned endpoint cells for Timestream
 
-Where `<QUERY_CELL>`, `<WRITE_CELL>` are your assigned cells from the pre-requisite steps.
 
-Take note of the VPC and subnet IDs from the deployment output.
+1. From the `privatelink` directory, run the following command to deploy the template:
 
-### 2. Deploy EC2
+```
+sam deploy --parameter-overrides "VpcId=<VPC_ID> PrivateSubnetId1=<PRIVATE_SUBNET_ID_1> PrivateSubnetId2=<PRIVATE_SUBNET_ID_2> PrivateRouteTableId1=<PRIVATE_ROUTE_TABLE_ID_1> PrivateRouteTableId2=<PRIVATE_ROUTE_TABLE_ID_2> VpcCidrIp=<VPC_CIPR_IP> TimestreamQueryCell=<QUERY_CELL> TimestreamWriteCell=<WRITE_CELL>"
+```
 
-Deploy the EC2 instance. This is where we will setup Prometheus and the Prometheus Connector.
+To view the full set of `sam deploy` options see the [sam deploy documentation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-deploy.html).
 
-1. `cd ./ec2`
-2. `sam deploy --parameter-overrides "VpcId=<VPC_ID> PrivateSubnetId1=<PRIVATE_SUBNET_ID_1> PrivateSubnetId2=<PRIVATE_SUBNET_ID_2>"`
+2. The deployment will have the following outputs upon completion:
 
-Once the EC2 instance has been successfully deployed (you may have to wait a few minutes after deployment for the instance to finish booting up), connect using AWS SSM:
+- `InstanceId`: ID of the EC2 instance
+- `EcrRepositoryUrl`: URL of the ECR repository
+
+   An example of the output:
+
+```
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Outputs                                                                                                                                           
+---------------------------------------------------------------------------------------------------------------------------------------------------
+Key                 InstanceId                                                                                                                    
+Description         ID of the EC2 instance                                                                                                        
+Value               i-08a5d7e1700c9be5a                                                                                                           
+
+Key                 EcrRepositoryUrl                                                                                                              
+Description         URL of the ECR repository                                                                                                     
+Value               460629772345.dkr.ecr.us-west-2.amazonaws.com/privatelink                                                                      
+---------------------------------------------------------------------------------------------------------------------------------------------------
+```
+
+### Prepare docker images
+
+First, authenticate with docker on your local machine. This will allow you to push images to the ECR repository that was created from deployment. 
+
+
+1. Replace `ECR_REPOSITORY_URL` with your ECR repository URL to authenticate with docker.
+
+```
+aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin <ECR_REPOSITORY_URL>
+```
+
+#### Prepare the Prometheus Connector
+
+1. From this directory (`privatelink`), use the `arm.Dockerfile` to build and tag the Prometheus Connector.  Replace `ECR_REPOSITORY_URL` with your ECR repository URL.
+
+```
+docker build -t <ECR_REPOSITORY_URL>:prometheus-connector -f ./arm.Dockerfile ..
+```
+
+2. Push the built image to ECR.
+```
+docker push <ECR_REPOSITORY_URL>:prometheus-connector
+```
+
+#### Prepare Prometheus
+
+Prometheus maintains an [official docker image](https://hub.docker.com/r/prom/prometheus) that can be used to directly tag and push to the ECR repository.
+
+1. Tag the Prometheus image, replacing `ECR_REPOSITORY_URL` with your ECR repository URL.
+```
+docker tag prom/prometheus:latest <ECR_REPOSITORY_URL>:prometheus
+```
+
+2. Push the tagged image to ECR.
+```
+docker push <ECR_REPOSITORY_URL>:prometheus
+```
+
+You are now set to connect to the EC2 instance and deploy the containers.
+
+### Connect to EC2
+
+1. Start an AWS SSM session, replacing `INSTANCE_ID` with your EC2 instance ID from deployment.
 
 ```shell
 aws ssm start-session --target i-<INSTANCE_ID>
 ``` 
+**You should now be connected to your instance.**
 
-### 3. Configure environment
-
-From within the EC2 instance, run the following command to configure docker & docker-compose:
+2. Run the following command to configure your docker user and group:
 ```
 sudo usermod -aG docker ssm-user
 sudo newgrp docker
-alias dc="docker-compose"
-export PATH=$PATH:/usr/local/bin
 ```
 
-#### Configure Prometheus
+3. Login with docker to gain pull access to your ECR repository. This will prompt for you to enter your password.
+```
+docker login --username AWS <ECR_REPOSITORY_URL>
+```
 
-1. `mkdir ~/prom`
-2. `touch ~/prom/{passwordFile,prom.yml,docker-compose.yaml}`
+Use the same password that was retrieved for pushing the images to ECR. To retrieve the password, run the following command from your local environment (where your AWS profile is configured):
 
-And fill in the above files with the following configs:
+```
+aws ecr get-login-password --region us-west-2
+```
 
-`docker-compose.yml`:
+Once you have successfully logged in, you are now able to pull images from ECR through VPC endpoints.
+
+### Launch Prometheus Connector
+
+
+To deploy the Prometheus Connector from within the EC2, set the following environment variables to configure your existing Timestream database, region, and assigned cells:
+
+- `DEFAULT_DATABASE`: Specifies the default Timestream database for the Prometheus connector.
+- `DEFAULT_TABLE`: Specifies the default table for storing Prometheus metrics.
+- `AWS_REGION`: Defines the AWS region.
+- `QUERY_CELL`: Defines the query endpoint cell for Timestream.
+- `INGEST_CELL`: Defines the ingestion endpoint cell for Timestream.
+
+
+Launch the Prometheus Connector:
+
+```
+docker run -d \
+  --name connector \
+  --network aws_network \
+  -p 9201:9201 \
+  -e AWS_ENABLE_ENDPOINT_DISCOVERY=false \
+  460629772345.dkr.ecr.us-west-2.amazonaws.com/privatelink:prometheus-connector \
+  --default-database=${DEFAULT_DATABASE:-DevPrometheusDatabase} \
+  --default-table=${DEFAULT_TABLE:-DevPrometheusMetricsTable} \
+  --region=${AWS_REGION:-us-west-2} \
+  --log.level=debug \
+  --query-base-endpoint=https://${QUERY_CELL:-query-cell1}.timestream.${AWS_REGION:-us-west-2}.amazonaws.com \
+  --write-base-endpoint=https://${INGEST_CELL:-ingest-cell1}.timestream.${AWS_REGION:-us-west-2}.amazonaws.com
+```
+
+Verify that the container is running by viewing its logs:
+
+```
+docker logs connector -f
+```
+
+
+### Launch Prometheus
+
+To deploy Prometheus from within the EC2, you will need to create two files:
+- `prom.yml`: This is the configuration file for Prometheus.
+- `passwordFile`: A file that contains only the value for your account's *aws_secret_access_key*.
+
+1. Create a directory for Prometheus and set up the following files.
+```
+mkdir ~/prometheus && touch ~/prometheus/{passwordFile,prom.yml}
+```
+
+
+- `~/prometheus/prom.yml`:
 ```yaml
-services:
-  prometheus:
-    image: prom/prometheus
-    container_name: prom
-    command: --config.file=/etc/prometheus/prometheus.yml --log.level=debug
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./passwordFile:/etc/prometheus/passwordFile
-      - ./prom.yml:/etc/prometheus/prometheus.yml
-    networks:
-      - aws_network
-
-networks:
-  aws_network:
-    external: true
+scrape_configs:
+  - job_name: 'prometheus'
+    scrape_interval:    15s
+    static_configs:
+      - targets: ['localhost:9090']
+remote_write:
+  - url: "http://connector:9201/write"
+    basic_auth:
+      username: <ACCESS_KEY>
+      password_file: /etc/prometheus/passwordFile
+remote_read:
+  - url: "http://connector:9201/read"
+    basic_auth:
+      username: <ACCESS_KEY>
+      password_file: /etc/prometheus/passwordFile
 ```
 
-`prom.yml`:
+Replace `ACCESS_KEY` with your AWS Access key.
+
+
+- `~/prometheus/passwordFile`:
 ```yaml
-   scrape_configs:
-     - job_name: 'prometheus'
-       scrape_interval:    15s
-       static_configs:
-         - targets: ['localhost:9090']
-
-   remote_write:
-   - url: "http://connector:9201/write"
-
-     # Update the username and password to a valid IAM access key and secret access key.
-     basic_auth:
-         username: accessKey
-         password_file: passwordFile
-
-   remote_read:
-   - url: "http://connector:9201/read"
-
-     # Update the username and password to a valid IAM access key and secret access key.
-     basic_auth:
-         username: accessKey
-         password_file: passwordFile
-```
-
-Replace `accessKey` with your AWS Access key.
-
-`passwordFile`:
-```
 <aws_secret_access_key>
 ```
 
-The password file must contain only the value for *aws_secret_access_key*.
 
-3. Run the following command to pull the Prometheus image:
-```shell
-cd ~/prom && dc pull
+You are now ready to deploy Prometheus.
+
+2. Run the following docker command to launch the container:
+```
+docker run -d \
+  --name prom \
+  --network aws_network \
+  -p 9090:9090 \
+  -v ~/prometheus/passwordFile:/etc/prometheus/passwordFile \
+  -v ~/prometheus/prom.yml:/etc/prometheus/prometheus.yml \
+  460629772345.dkr.ecr.us-west-2.amazonaws.com/privatelink:prometheus \
+  --config.file=/etc/prometheus/prometheus.yml --log.level=debug
 ```
 
-#### Configure Prometheus Connector
+Verify that the container is running by viewing its logs.
 
-You can build the Prometheus Connector from source or pull a pre-built docker image.
-
-##### Building from source
-
-1. Clone the repo and check out the `dev-privatelink` branch.
-2. Update `./privatelink/docker-compose.yaml` with your Timestream database and table, region and assigned cell endpoints.
-2. `cd ./privatelink` and run `dc build`.
-
-##### Using pre-built docker image
-
-1. `mkdir ~/connector`
-2. `touch ~/connector/docker-compose.yaml`
-
-`docker-compose.yaml`:
-```yaml
-services:
-  timestream-prometheus-connector:
-    container_name: connector
-    image: fpimproving/amazon-timestream-connector-prometheus:privatelink
-    ports:
-      - "9201:9201"
-    command:
-      - --default-database=${DEFAULT_DATABASE:-DevPrometheusDatabase}
-      - --default-table=${DEFAULT_TABLE:-DevPrometheusMetricsTable}
-      - --region=${AWS_REGION:-us-west-2}
-      - --log.level=debug
-      - --read-base-endpoint=https://<QUERY_CELL>.timestream.${AWS_REGION:-us-west-2}.amazonaws.com
-      - --write-base-endpoint=https://<WRITE_CELL>.timestream.${AWS_REGION:-us-west-2}.amazonaws.com
-    environment:
-      AWS_ENABLE_ENDPOINT_DISCOVERY: false
-    networks:
-      - aws_network
-
-networks:
-  aws_network:
-    external: true
 ```
-Where `<QUERY_CELL>`, `<WRITE_CELL>` are your assigned cells from the pre-requisite steps.
-
-3. Run the following command to pull the Prometheus Connector image:
-```shell
-cd ~/connector && dc pull
+docker logs prom -f
 ```
-
-Your EC2 instance is now fully configured and you can safely revoke internet access for your VPC.
-
-### 4. Revoke internet access
-
-The `./vpc/private-vpc.yml` template contains the same resources as `./vpc/full-vpc.yml`, but excludes resources associated with providing the VPC internet access.
-
-Deploy the `./vpc/private-vpc.yml` template to update the current VPC:
-
-1. `cd ./vpc`
-2. `sam deploy -t private-vpc.yml --parameter-overrides "TimestreamQueryCell=<QUERY_CELL> TimestreamWriteCell=<WRITE_CELL>"`
-
-### 5. Launch Prometheus & Prometheus Connector
-
-You can now bring up Prometheus and the Prometheus Connector to verify ingestion from within the EC2 instance. The current environment ensures network calls stay within the isolated VPC and has access to Amazon Timestream through VPC endpoints.
-
-#### Start Prometheus Connector
-
-1. Navigate to connector directory
-
-- From source: `cd <path/to/amazon-timestream-connector-prometheus>`
-- Using pre-built docker image: `cd ~/connector`
-
-2. `dc up -d`
-
-#### Start Prometheus
-
-1. `cd ~/prom`
-2. `dc up -d`
-
 #### Verify ingestion
 
-You can observe the logs from containers, or use the following command to confirm that Prometheus data is being ingested to Timestream through the Prometheus Connector.
+You can observe the logs from containers, or use `awscli` from your local machine to directly confirm that Prometheus data is being ingested to Timestream through the Prometheus Connector.
 
 ```shell
 aws timestream-query query --query-string "SELECT count() FROM <PrometheusDatabase>.<PrometheusMetricsTable>" --region <AWS_REGION>
 ```
+
+To view the Prometheus expression browser locally, you can connect to your EC2 with port-forwarding:
+```
+ aws ssm start-session --target i-<INSTANCE_ID> --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["9090"],"localPortNumber":["9090"]}'
+```
+
+Visit http://localhost:9090 in a browser. Execute a Prometheus Query Language (PromQL) query to verify ingestion.
+
+A simple example:
+```
+prometheus_http_requests_total{}
+```
+
+For more details on verification, see [README.md#verification](../README.md#verification).
+
+
+### Cleanup
+
+1. Delete the cloudformation stack. From the `privatelink` directory, run the following command:
+
+```shell
+sam delete
+```
+
+## Caveats
+
+This SAM template does not enable TLS encryption by default between Prometheus and the Prometheus Connector.
+
+Ensure the following:
+
+1. Regularly rotate IAM user access keys, see [rotating access keys](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html#Using_RotateAccessKey).
+2. Follow IAM [best practices](https://docs.aws.amazon.com/timestream/latest/developerguide/security_iam_id-based-policy-examples.html#security_iam_service-with-iam-policy-best-practices).
+
+## License
+
+This project is licensed under the Apache 2.0 License.
