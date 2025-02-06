@@ -9,7 +9,7 @@ This [serverless application](https://aws.amazon.com/serverless/) consists of th
 - [VPC Endpoints](https://docs.aws.amazon.com/whitepapers/latest/aws-privatelink/what-are-vpc-endpoints.html) for securely communicating with AWS services using PrivateLink.
 - [Amazon ECR](https://aws.amazon.com/ecr/getting-started/) to store docker images that will be deployed in the EC2 instance.
 
-This application assumes that the VPC in which the template will be deployed has no internet access and ensures that all communication stays within Amazon's internal network.
+This application assumes that the VPC in which the template will be deployed has no internet access and ensures that all communication stays within Amazon's internal network. 
 
 ## Prerequisites
 
@@ -58,7 +58,7 @@ From your existing VPC, you will need the following values:
 1. From the `privatelink` directory, run the following command to deploy the template:
 
 ```
-sam deploy --parameter-overrides "VpcId=<VPC_ID> PrivateSubnetId1=<PRIVATE_SUBNET_ID_1> PrivateSubnetId2=<PRIVATE_SUBNET_ID_2> PrivateRouteTableId1=<PRIVATE_ROUTE_TABLE_ID_1> PrivateRouteTableId2=<PRIVATE_ROUTE_TABLE_ID_2> VpcCidrIp=<VPC_CIPR_IP> TimestreamQueryCell=<QUERY_CELL> TimestreamWriteCell=<WRITE_CELL>"
+sam deploy --parameter-overrides "VpcId=<VPC_ID> VpcCidrIp=<VPC_CIPR_IP> PrivateSubnetId1=<PRIVATE_SUBNET_ID_1> PrivateSubnetId2=<PRIVATE_SUBNET_ID_2> PrivateRouteTableId1=<PRIVATE_ROUTE_TABLE_ID_1> PrivateRouteTableId2=<PRIVATE_ROUTE_TABLE_ID_2> TimestreamQueryCell=<QUERY_CELL> TimestreamWriteCell=<WRITE_CELL>"
 ```
 
 To view the full set of `sam deploy` options see the [sam deploy documentation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-deploy.html).
@@ -71,9 +71,9 @@ To view the full set of `sam deploy` options see the [sam deploy documentation](
    An example of the output:
 
 ```
----------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 Outputs                                                                                                                                           
----------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 Key                 InstanceId                                                                                                                    
 Description         ID of the EC2 instance                                                                                                        
 Value               i-08a5d7e1700c9be5a                                                                                                           
@@ -81,7 +81,7 @@ Value               i-08a5d7e1700c9be5a
 Key                 EcrRepositoryUrl                                                                                                              
 Description         URL of the ECR repository                                                                                                     
 Value               460629772345.dkr.ecr.us-west-2.amazonaws.com/privatelink                                                                      
----------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------
 ```
 
 ### Prepare docker images
@@ -164,7 +164,7 @@ To deploy the Prometheus Connector from within the EC2, set the following enviro
 - `INGEST_CELL`: Defines the ingestion endpoint cell for Timestream.
 
 
-Launch the Prometheus Connector:
+Launch the Prometheus Connector, replacing `ECR_REPOSITORY_URL` with your ECR repository URL:
 
 ```
 docker run -d \
@@ -172,9 +172,9 @@ docker run -d \
   --network aws_network \
   -p 9201:9201 \
   -e AWS_ENABLE_ENDPOINT_DISCOVERY=false \
-  460629772345.dkr.ecr.us-west-2.amazonaws.com/privatelink:prometheus-connector \
-  --default-database=${DEFAULT_DATABASE:-DevPrometheusDatabase} \
-  --default-table=${DEFAULT_TABLE:-DevPrometheusMetricsTable} \
+  <ECR_REPOSITORY_URL>:prometheus-connector \
+  --default-database=${DEFAULT_DATABASE:-PrometheusDatabase} \
+  --default-table=${DEFAULT_TABLE:-PrometheusMetricsTable} \
   --region=${AWS_REGION:-us-west-2} \
   --log.level=debug \
   --query-base-endpoint=https://${QUERY_CELL:-query-cell1}.timestream.${AWS_REGION:-us-west-2}.amazonaws.com \
@@ -230,7 +230,7 @@ Replace `ACCESS_KEY` with your AWS Access key.
 
 You are now ready to deploy Prometheus.
 
-2. Run the following docker command to launch the container:
+2. Run the following docker command to launch Prometheus, replacing `ECR_REPOSITORY_URL` with your ECR repository URL:
 ```
 docker run -d \
   --name prom \
@@ -238,7 +238,7 @@ docker run -d \
   -p 9090:9090 \
   -v ~/prometheus/passwordFile:/etc/prometheus/passwordFile \
   -v ~/prometheus/prom.yml:/etc/prometheus/prometheus.yml \
-  460629772345.dkr.ecr.us-west-2.amazonaws.com/privatelink:prometheus \
+  <ECR_REPOSITORY_URL>:prometheus \
   --config.file=/etc/prometheus/prometheus.yml --log.level=debug
 ```
 
