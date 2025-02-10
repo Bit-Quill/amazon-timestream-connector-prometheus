@@ -14,7 +14,7 @@ This application assumes that the VPC in which the template will be deployed has
 
 1. A VPC with at least two private subnets and route tables.
 2. A Timestream database and table.
-3. Read and write cells for your Timestream account. Amazon routes requests to the write and query endpoints of the cell that your account has been mapped to for a given region.
+3. [Read and write cells](https://docs.aws.amazon.com/timestream/latest/developerguide/architecture.html#cells) for your Timestream account. Amazon routes requests to the write and query endpoints of the cell that your account has been mapped to for a given region.
 
 To get your assigned cells using `awscli`:
 
@@ -89,10 +89,10 @@ aws ssm start-session --target i-<INSTANCE_ID>
     mkdir ~/connector && cd ~/connector
     ```
     
-    2. Download the precompiled binary from S3. [See here](https://github.com/awslabs/amazon-timestream-connector-prometheus/releases) for released versions.
+    2. Download the precompiled binary from S3 for your region. [See here](https://github.com/awslabs/amazon-timestream-connector-prometheus/tags) for released versions.
 
     ```shell
-    curl -O https://timestreamassets-us-west-2.s3.us-west-2.amazonaws.com/timestream-prometheus-connector/timestream-prometheus-connector-linux-arm64-<VERSION>.zip
+    curl -O https://timestreamassets-<AWS_REGION>.s3.<AWS_REGION>.amazonaws.com/timestream-prometheus-connector/timestream-prometheus-connector-linux-arm64-<VERSION>.zip
     ``` 
     
     3. Unzip the binary.
