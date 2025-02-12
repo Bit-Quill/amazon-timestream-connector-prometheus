@@ -55,7 +55,7 @@ From your existing VPC, you will need the following values:
 1. From the `privatelink` directory, run the following command to deploy the SAM template:
 
 ```
-sam deploy --parameter-overrides "VpcId=<VPC_ID> VpcCidrIp=<VPC_CIPR_IP> PrivateSubnetId1=<PRIVATE_SUBNET_ID_1> PrivateSubnetId2=<PRIVATE_SUBNET_ID_2> PrivateRouteTableId1=<PRIVATE_ROUTE_TABLE_ID_1> PrivateRouteTableId2=<PRIVATE_ROUTE_TABLE_ID_2> TimestreamQueryCell=<QUERY_CELL> TimestreamWriteCell=<WRITE_CELL>"
+sam deploy --parameter-overrides "VpcId=<VPC_ID> VpcCidrIp=<VPC_CIDR_IP> PrivateSubnetId1=<PRIVATE_SUBNET_ID_1> PrivateSubnetId2=<PRIVATE_SUBNET_ID_2> PrivateRouteTableId1=<PRIVATE_ROUTE_TABLE_ID_1> PrivateRouteTableId2=<PRIVATE_ROUTE_TABLE_ID_2> TimestreamQueryCell=<QUERY_CELL> TimestreamWriteCell=<WRITE_CELL>"
 ```
 
 To view the full set of `sam deploy` options see the [sam deploy documentation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-deploy.html).
@@ -137,5 +137,5 @@ To see an example of how Prometheus can be configured, [see here](https://github
 Delete the CloudFormation stack. From the `privatelink` directory, run the following command:
 
 ```shell
-sam delete
+sam delete --region <AWS_REGION>
 ```
