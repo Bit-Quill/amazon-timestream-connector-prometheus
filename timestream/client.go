@@ -32,7 +32,7 @@ import (
 	qtypes "github.com/aws/aws-sdk-go-v2/service/timestreamquery/types"
 	"github.com/aws/aws-sdk-go-v2/service/timestreamwrite"
 	wtypes "github.com/aws/aws-sdk-go-v2/service/timestreamwrite/types"
-	"github.com/aws/smithy-go"
+	smithy "github.com/aws/smithy-go"
 	"github.com/aws/smithy-go/transport/http"
 
 	"github.com/go-kit/log"

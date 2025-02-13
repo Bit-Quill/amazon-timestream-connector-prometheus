@@ -93,7 +93,7 @@ func newMockPaginator(timestreamQuery *timestreamquery.Client, queryInput *times
 }
 
 func (m *mockPaginator) HasMorePages() bool {
-	args := m.Called()
+	args := m.Mock.Called()
 	if result := args.Get(0); result != nil {
 		return result.(bool)
 	}
@@ -101,7 +101,7 @@ func (m *mockPaginator) HasMorePages() bool {
 }
 
 func (m *mockPaginator) NextPage(ctx context.Context) (*timestreamquery.QueryOutput, error) {
-	args := m.Called(ctx)
+	args := m.Mock.Called(ctx)
 	if result := args.Get(0); result != nil {
 		return result.(*timestreamquery.QueryOutput), args.Error(1)
 	}
@@ -117,7 +117,7 @@ func (m *mockTimestreamWriteClient) WriteRecords(
 	input *timestreamwrite.WriteRecordsInput,
 	optFns ...func(*timestreamwrite.Options),
 ) (*timestreamwrite.WriteRecordsOutput, error) {
-	args := m.Called(ctx, input, optFns)
+	args := m.Mock.Called(ctx, input, optFns)
 	if result := args.Get(0); result != nil {
 		return result.(*timestreamwrite.WriteRecordsOutput), args.Error(1)
 	}
@@ -308,8 +308,8 @@ func TestQueryClientRead(t *testing.T) {
 		}
 
 		mockPaginator := newMockPaginator(mockTimestreamQueryClient.Client, queryInput)
-		mockPaginator.On("HasMorePages").Return(false, nil)
-		mockPaginator.On("NextPage", mock.Anything).Return(nil, nil)
+		mockPaginator.Mock.On("HasMorePages").Return(false, nil)
+		mockPaginator.Mock.On("NextPage", mock.Anything).Return(nil, nil)
 		initPaginatorFactory = func(timestreamQuery *timestreamquery.Client, queryInput *timestreamquery.QueryInput) Paginator {
 			return mockPaginator
 		}
@@ -324,7 +324,7 @@ func TestQueryClientRead(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, response, readResponse)
 
-		mockTimestreamQueryClient.AssertExpectations(t)
+		mockTimestreamQueryClient.Mock.AssertExpectations(t)
 	})
 
 	t.Run("success without mapping", func(t *testing.T) {
@@ -333,8 +333,8 @@ func TestQueryClientRead(t *testing.T) {
 			return mockTimestreamQueryClient.Client, nil
 		}
 		mockPaginator := newMockPaginator(mockTimestreamQueryClient.Client, queryInput)
-		mockPaginator.On("HasMorePages").Return(false, nil)
-		mockPaginator.On("NextPage", mock.Anything).Return(nil, nil)
+		mockPaginator.Mock.On("HasMorePages").Return(false, nil)
+		mockPaginator.Mock.On("NextPage", mock.Anything).Return(nil, nil)
 		initPaginatorFactory = func(timestreamQuery *timestreamquery.Client, queryInput *timestreamquery.QueryInput) Paginator {
 			return mockPaginator
 		}
@@ -350,7 +350,7 @@ func TestQueryClientRead(t *testing.T) {
 		assert.Nil(t, err)
 		assert.Equal(t, response, readResponse)
 
-		mockTimestreamQueryClient.AssertExpectations(t)
+		mockTimestreamQueryClient.Mock.AssertExpectations(t)
 	})
 
 	t.Run("error from buildCommands with missing database name in request", func(t *testing.T) {
@@ -360,8 +360,8 @@ func TestQueryClientRead(t *testing.T) {
 		}
 
 		mockPaginator := newMockPaginator(mockTimestreamQueryClient.Client, queryInput)
-		mockPaginator.On("HasMorePages").Return(false, nil)
-		mockPaginator.On("NextPage", mock.Anything).Return(nil, nil)
+		mockPaginator.Mock.On("HasMorePages").Return(false, nil)
+		mockPaginator.Mock.On("NextPage", mock.Anything).Return(nil, nil)
 		initPaginatorFactory = func(timestreamQuery *timestreamquery.Client, queryInput *timestreamquery.QueryInput) Paginator {
 			return mockPaginator
 		}
@@ -382,8 +382,8 @@ func TestQueryClientRead(t *testing.T) {
 		}
 
 		mockPaginator := newMockPaginator(mockTimestreamQueryClient.Client, queryInput)
-		mockPaginator.On("HasMorePages").Return(false, nil)
-		mockPaginator.On("NextPage", mock.Anything).Return(nil, nil)
+		mockPaginator.Mock.On("HasMorePages").Return(false, nil)
+		mockPaginator.Mock.On("NextPage", mock.Anything).Return(nil, nil)
 		initPaginatorFactory = func(timestreamQuery *timestreamquery.Client, queryInput *timestreamquery.QueryInput) Paginator {
 			return mockPaginator
 		}
@@ -399,15 +399,15 @@ func TestQueryClientRead(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, readResponse)
-		mockTimestreamQueryClient.AssertExpectations(t)
+		mockTimestreamQueryClient.Mock.AssertExpectations(t)
 	})
 
 	t.Run("error from NextPage()", func(t *testing.T) {
 		serverError := &qtypes.InternalServerException{Message: aws.String("Server error")}
 
 		mockPaginator := new(mockPaginator)
-		mockPaginator.On("HasMorePages").Return(true, nil)
-		mockPaginator.On("NextPage", mock.Anything).Return(nil, serverError)
+		mockPaginator.Mock.On("HasMorePages").Return(true, nil)
+		mockPaginator.Mock.On("NextPage", mock.Anything).Return(nil, serverError)
 		initPaginatorFactory = func(timestreamQuery *timestreamquery.Client, queryInput *timestreamquery.QueryInput) Paginator {
 			return mockPaginator
 		}
@@ -422,7 +422,7 @@ func TestQueryClientRead(t *testing.T) {
 		_, err := c.queryClient.Read(context.Background(), request, mockCredentials)
 		assert.Equal(t, serverError, err)
 
-		mockPaginator.AssertExpectations(t)
+		mockPaginator.Mock.AssertExpectations(t)
 	})
 
 	t.Run("error from NextPage() with invalid regex", func(t *testing.T) {
@@ -430,8 +430,8 @@ func TestQueryClientRead(t *testing.T) {
 		mockTimestreamQueryClient := new(mockTimestreamQueryClient)
 
 		mockPaginator := newMockPaginator(mockTimestreamQueryClient.Client, queryInputWithInvalidRegex)
-		mockPaginator.On("HasMorePages").Return(true, nil)
-		mockPaginator.On("NextPage", mock.Anything).Return(nil, validationError)
+		mockPaginator.Mock.On("HasMorePages").Return(true, nil)
+		mockPaginator.Mock.On("NextPage", mock.Anything).Return(nil, validationError)
 		initPaginatorFactory = func(timestreamQuery *timestreamquery.Client, queryInput *timestreamquery.QueryInput) Paginator {
 			return mockPaginator
 		}
@@ -450,7 +450,7 @@ func TestQueryClientRead(t *testing.T) {
 		_, err := c.queryClient.Read(context.Background(), requestWithInvalidRegex, mockCredentials)
 		assert.Equal(t, validationError, err)
 
-		mockTimestreamQueryClient.AssertExpectations(t)
+		mockTimestreamQueryClient.Mock.AssertExpectations(t)
 	})
 
 	t.Run("success convert result", func(t *testing.T) {
@@ -523,8 +523,8 @@ func TestQueryClientRead(t *testing.T) {
 
 	t.Run("error from buildCommand with unknown matcher type", func(t *testing.T) {
 		mockPaginator := new(mockPaginator)
-		mockPaginator.On("HasMorePages").Return(false, nil)
-		mockPaginator.On("NextPage", mock.Anything).Return(nil, nil)
+		mockPaginator.Mock.On("HasMorePages").Return(false, nil)
+		mockPaginator.Mock.On("NextPage", mock.Anything).Return(nil, nil)
 		initPaginatorFactory = func(timestreamQuery *timestreamquery.Client, queryInput *timestreamquery.QueryInput) Paginator {
 			return mockPaginator
 		}
@@ -547,8 +547,8 @@ func TestQueryClientRead(t *testing.T) {
 		}
 
 		mockPaginator := newMockPaginator(mockTimestreamQueryClient.Client, queryInput)
-		mockPaginator.On("HasMorePages").Return(false, nil)
-		mockPaginator.On("NextPage", mock.Anything).Return(nil, nil)
+		mockPaginator.Mock.On("HasMorePages").Return(false, nil)
+		mockPaginator.Mock.On("NextPage", mock.Anything).Return(nil, nil)
 		initPaginatorFactory = func(timestreamQuery *timestreamquery.Client, queryInput *timestreamquery.QueryInput) Paginator {
 			return mockPaginator
 		}
@@ -570,7 +570,7 @@ func TestWriteClientWrite(t *testing.T) {
 		mockTimestreamWriteClient := new(mockTimestreamWriteClient)
 		expectedInput := createNewWriteRecordsInputTemplate()
 
-		mockTimestreamWriteClient.On(
+		mockTimestreamWriteClient.Mock.On(
 			"WriteRecords",
 			mock.Anything,
 			mock.MatchedBy(func(writeInput *timestreamwrite.WriteRecordsInput) bool {
@@ -596,8 +596,8 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.writeClient.Write(context.Background(), createNewRequestTemplate(), mockCredentials)
 		assert.Nil(t, err)
 
-		mockTimestreamWriteClient.AssertCalled(t, "WriteRecords", mock.Anything, expectedInput, mock.Anything)
-		mockTimestreamWriteClient.AssertExpectations(t)
+		mockTimestreamWriteClient.Mock.AssertCalled(t, "WriteRecords", mock.Anything, expectedInput, mock.Anything)
+		mockTimestreamWriteClient.Mock.AssertExpectations(t)
 	})
 
 	t.Run("success writing one timeSeries with more than one sample", func(t *testing.T) {
@@ -606,7 +606,7 @@ func TestWriteClientWrite(t *testing.T) {
 		expectedInput := createNewWriteRecordsInputTemplate()
 		expectedInput.Records = append(expectedInput.Records, createNewRecordTemplate())
 
-		mockTimestreamWriteClient.On(
+		mockTimestreamWriteClient.Mock.On(
 			"WriteRecords",
 			mock.Anything,
 			mock.MatchedBy(func(writeInput *timestreamwrite.WriteRecordsInput) bool {
@@ -637,8 +637,8 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.writeClient.Write(context.Background(), req, mockCredentials)
 		assert.Nil(t, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 1)
-		mockTimestreamWriteClient.AssertExpectations(t)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 1)
+		mockTimestreamWriteClient.Mock.AssertExpectations(t)
 	})
 
 	t.Run("success writing one timeSeries with more than one sample without mapping", func(t *testing.T) {
@@ -647,7 +647,7 @@ func TestWriteClientWrite(t *testing.T) {
 		expectedInput := createNewWriteRecordsInputTemplate()
 		expectedInput.Records = append(expectedInput.Records, createNewRecordTemplate())
 
-		mockTimestreamWriteClient.On(
+		mockTimestreamWriteClient.Mock.On(
 			"WriteRecords",
 			mock.Anything,
 			mock.MatchedBy(func(writeInput *timestreamwrite.WriteRecordsInput) bool {
@@ -677,8 +677,8 @@ func TestWriteClientWrite(t *testing.T) {
 		errWm := c.writeClient.Write(context.Background(), reqWithoutMapping, mockCredentials)
 		assert.Nil(t, errWm)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 1)
-		mockTimestreamWriteClient.AssertExpectations(t)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 1)
+		mockTimestreamWriteClient.Mock.AssertExpectations(t)
 	})
 
 	t.Run("success writing samples to the same destination", func(t *testing.T) {
@@ -687,7 +687,7 @@ func TestWriteClientWrite(t *testing.T) {
 		expectedInput := createNewWriteRecordsInputTemplate()
 		expectedInput.Records = append(expectedInput.Records, createNewRecordTemplate())
 
-		mockTimestreamWriteClient.On(
+		mockTimestreamWriteClient.Mock.On(
 			"WriteRecords",
 			mock.Anything,
 			mock.MatchedBy(func(writeInput *timestreamwrite.WriteRecordsInput) bool {
@@ -715,8 +715,8 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.writeClient.Write(context.Background(), req, mockCredentials)
 		assert.Nil(t, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 1)
-		mockTimestreamWriteClient.AssertExpectations(t)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 1)
+		mockTimestreamWriteClient.Mock.AssertExpectations(t)
 	})
 
 	t.Run("missing database name in write series", func(t *testing.T) {
@@ -725,7 +725,7 @@ func TestWriteClientWrite(t *testing.T) {
 		expectedInput := createNewWriteRecordsInputTemplate()
 		expectedInput.Records = append(expectedInput.Records, createNewRecordTemplate())
 
-		mockTimestreamWriteClient.On(
+		mockTimestreamWriteClient.Mock.On(
 			"WriteRecords",
 			mock.Anything,
 			mock.MatchedBy(func(writeInput *timestreamwrite.WriteRecordsInput) bool {
@@ -759,7 +759,7 @@ func TestWriteClientWrite(t *testing.T) {
 		expectedInput := createNewWriteRecordsInputTemplate()
 		expectedInput.Records = append(expectedInput.Records, createNewRecordTemplate())
 
-		mockTimestreamWriteClient.On(
+		mockTimestreamWriteClient.Mock.On(
 			"WriteRecords",
 			mock.Anything,
 			mock.MatchedBy(func(writeInput *timestreamwrite.WriteRecordsInput) bool {
@@ -815,7 +815,7 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.WriteClient().Write(context.Background(), input, mockCredentials)
 		assert.IsType(t, &errors.MissingDatabaseWithWriteError{}, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 0)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 0)
 	})
 
 	t.Run("error from convertToRecords due to missing ingestion table destination", func(t *testing.T) {
@@ -846,7 +846,7 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.WriteClient().Write(context.Background(), input, mockCredentials)
 		assert.IsType(t, &errors.MissingTableWithWriteError{}, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 0)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 0)
 	})
 
 	t.Run("error from WriteRecords()", func(t *testing.T) {
@@ -856,7 +856,7 @@ func TestWriteClientWrite(t *testing.T) {
 			Message: aws.String("Validation error occurred"),
 		}
 
-		mockTimestreamWriteClient.On(
+		mockTimestreamWriteClient.Mock.On(
 			"WriteRecords",
 			mock.Anything,
 			mock.MatchedBy(func(writeInput *timestreamwrite.WriteRecordsInput) bool {
@@ -881,13 +881,13 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.WriteClient().Write(context.Background(), createNewRequestTemplate(), mockCredentials)
 		assert.Equal(t, requestError, err)
 
-		mockTimestreamWriteClient.AssertExpectations(t)
+		mockTimestreamWriteClient.Mock.AssertExpectations(t)
 	})
 
 	t.Run("valid timeSeries with fail-fast enabled", func(t *testing.T) {
 		mockTimestreamWriteClient := new(mockTimestreamWriteClient)
 		expectedInput := createNewWriteRecordsInputTemplate()
-		mockTimestreamWriteClient.On(
+		mockTimestreamWriteClient.Mock.On(
 			"WriteRecords",
 			mock.Anything,
 			mock.MatchedBy(func(writeInput *timestreamwrite.WriteRecordsInput) bool {
@@ -914,7 +914,7 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.WriteClient().Write(context.Background(), req, mockCredentials)
 		assert.Nil(t, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 1)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 1)
 	})
 
 	t.Run("NaN timeSeries with fail-fast enabled", func(t *testing.T) {
@@ -937,7 +937,7 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.WriteClient().Write(context.Background(), req, mockCredentials)
 		assert.IsType(t, &errors.InvalidSampleValueError{}, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 0)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 0)
 	})
 
 	t.Run("NaN timeSeries with fail-fast disabled", func(t *testing.T) {
@@ -960,7 +960,7 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.WriteClient().Write(context.Background(), req, mockCredentials)
 		assert.Nil(t, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 0)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 0)
 	})
 
 	t.Run("Inf timeSeries with fail-fast enabled", func(t *testing.T) {
@@ -988,7 +988,7 @@ func TestWriteClientWrite(t *testing.T) {
 		err = c.WriteClient().Write(ctx, req, mockCredentials)
 		assert.IsType(t, &errors.InvalidSampleValueError{}, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 0)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 0)
 	})
 
 	t.Run("Inf timeSeries with fail-fast disabled", func(t *testing.T) {
@@ -1016,7 +1016,7 @@ func TestWriteClientWrite(t *testing.T) {
 		err = c.WriteClient().Write(ctx, req, mockCredentials)
 		assert.Nil(t, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 0)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 0)
 	})
 
 	t.Run("long metric name with fail-fast enabled", func(t *testing.T) {
@@ -1039,7 +1039,7 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.WriteClient().Write(context.Background(), req, mockCredentials)
 		assert.IsType(t, &errors.LongLabelNameError{}, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 0)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 0)
 	})
 
 	t.Run("long metric name with fail-fast disabled", func(t *testing.T) {
@@ -1062,7 +1062,7 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.WriteClient().Write(context.Background(), req, mockCredentials)
 		assert.Nil(t, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 0)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 0)
 	})
 
 	t.Run("long dimension name with fail-fast enabled", func(t *testing.T) {
@@ -1085,7 +1085,7 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.WriteClient().Write(context.Background(), req, mockCredentials)
 		assert.IsType(t, &errors.LongLabelNameError{}, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 0)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 0)
 	})
 
 	t.Run("long dimension name with fail-fast disabled", func(t *testing.T) {
@@ -1108,13 +1108,13 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.WriteClient().Write(context.Background(), req, mockCredentials)
 		assert.Nil(t, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 0)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 0)
 	})
 
 	t.Run("unknown SDK error", func(t *testing.T) {
 		mockTimestreamWriteClient := new(mockTimestreamWriteClient)
 		unknownSDKErr := errors.NewSDKNonRequestError(goErrors.New(""))
-		mockTimestreamWriteClient.On(
+		mockTimestreamWriteClient.Mock.On(
 			"WriteRecords",
 			mock.Anything,
 			createNewWriteRecordsInputTemplate(),
@@ -1137,7 +1137,7 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.WriteClient().Write(context.Background(), req, mockCredentials)
 		assert.Equal(t, unknownSDKErr, err)
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 1)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 1)
 	})
 
 	t.Run("invalid credentials provider", func(t *testing.T) {
@@ -1158,7 +1158,7 @@ func TestWriteClientWrite(t *testing.T) {
 		assert.Error(t, err)
 		assert.Equal(t, "invalid credentials", err.Error())
 
-		mockTimestreamWriteClient.AssertNumberOfCalls(t, "WriteRecords", 0)
+		mockTimestreamWriteClient.Mock.AssertNumberOfCalls(t, "WriteRecords", 0)
 	})
 
 	t.Run("handle 4xx SDK error", func(t *testing.T) {
@@ -1175,7 +1175,7 @@ func TestWriteClientWrite(t *testing.T) {
 			Err: goErrors.New("InvalidParameterException"),
 		}
 
-		mockTimestreamWriteClient.On(
+		mockTimestreamWriteClient.Mock.On(
 			"WriteRecords",
 			mock.Anything,
 			mock.MatchedBy(func(writeInput *timestreamwrite.WriteRecordsInput) bool {
@@ -1201,8 +1201,8 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.writeClient.Write(context.Background(), req, mockCredentials)
 		assert.Equal(t, responseError, err)
 
-		mockTimestreamWriteClient.AssertCalled(t, "WriteRecords", mock.Anything, expectedInput, mock.Anything)
-		mockTimestreamWriteClient.AssertExpectations(t)
+		mockTimestreamWriteClient.Mock.AssertCalled(t, "WriteRecords", mock.Anything, expectedInput, mock.Anything)
+		mockTimestreamWriteClient.Mock.AssertExpectations(t)
 	})
 
 	t.Run("handle 5xx SDK error", func(t *testing.T) {
@@ -1219,7 +1219,7 @@ func TestWriteClientWrite(t *testing.T) {
 			Err: goErrors.New("InternalServerError"),
 		}
 
-		mockTimestreamWriteClient.On(
+		mockTimestreamWriteClient.Mock.On(
 			"WriteRecords",
 			mock.Anything,
 			mock.MatchedBy(func(writeInput *timestreamwrite.WriteRecordsInput) bool {
@@ -1245,8 +1245,8 @@ func TestWriteClientWrite(t *testing.T) {
 		err := c.writeClient.Write(context.Background(), req, mockCredentials)
 		assert.Equal(t, responseError, err)
 
-		mockTimestreamWriteClient.AssertCalled(t, "WriteRecords", mock.Anything, expectedInput, mock.Anything)
-		mockTimestreamWriteClient.AssertExpectations(t)
+		mockTimestreamWriteClient.Mock.AssertCalled(t, "WriteRecords", mock.Anything, expectedInput, mock.Anything)
+		mockTimestreamWriteClient.Mock.AssertExpectations(t)
 	})
 }
 

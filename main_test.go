@@ -33,7 +33,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/retry"
 	wtypes "github.com/aws/aws-sdk-go-v2/service/timestreamwrite/types"
-	"github.com/aws/smithy-go"
+	smithy "github.com/aws/smithy-go"
 	"github.com/go-kit/log"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
@@ -149,7 +149,7 @@ type requestTestCase struct {
 }
 
 func (m *mockWriter) Write(ctx context.Context, req *prompb.WriteRequest, credentialsProvider aws.CredentialsProvider) error {
-	args := m.Called(ctx, req, credentialsProvider)
+	args := m.Mock.Called(ctx, req, credentialsProvider)
 	return args.Error(0)
 }
 
@@ -159,7 +159,7 @@ type mockReader struct {
 }
 
 func (m *mockReader) Read(ctx context.Context, req *prompb.ReadRequest, credentialsProvider aws.CredentialsProvider) (*prompb.ReadResponse, error) {
-	args := m.Called(ctx, req, credentialsProvider)
+	args := m.Mock.Called(ctx, req, credentialsProvider)
 	return args.Get(0).(*prompb.ReadResponse), args.Error(1)
 }
 
@@ -517,7 +517,7 @@ func TestLambdaHandlerWriteRequest(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			mockTimestreamWriter := new(mockWriter)
-			mockTimestreamWriter.On(
+			mockTimestreamWriter.Mock.On(
 				"Write",
 				mock.Anything,
 				mock.AnythingOfType(writeRequestType),
@@ -616,7 +616,7 @@ func TestLambdaHandlerReadRequest(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			mockTimestreamReader := new(mockReader)
-			mockTimestreamReader.On(
+			mockTimestreamReader.Mock.On(
 				"Read",
 				mock.Anything,
 				mock.AnythingOfType(readRequestType),
@@ -958,7 +958,7 @@ func TestWriteHandler(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			mockTimestreamWriter := new(mockWriter)
-			mockTimestreamWriter.On(
+			mockTimestreamWriter.Mock.On(
 				"Write",
 				mock.Anything,
 				mock.AnythingOfType(writeRequestType),
@@ -996,7 +996,7 @@ func TestWriteHandler(t *testing.T) {
 		halt = mockHalt
 
 		mockTimestreamWriter := new(mockWriter)
-		mockTimestreamWriter.On(
+		mockTimestreamWriter.Mock.On(
 			"Write",
 			mock.Anything,
 			mock.AnythingOfType(writeRequestType),
@@ -1129,7 +1129,7 @@ func TestReadHandler(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			mockTimestreamReader := new(mockReader)
-			mockTimestreamReader.On(
+			mockTimestreamReader.Mock.On(
 				"Read",
 				mock.Anything,
 				mock.AnythingOfType(readRequestType),

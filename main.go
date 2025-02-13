@@ -29,8 +29,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	wtypes "github.com/aws/aws-sdk-go-v2/service/timestreamwrite/types"
-	"github.com/aws/smithy-go"
-	smithyhttp "github.com/aws/smithy-go/transport/http"
+	smithy "github.com/aws/smithy-go"
+	// smithyhttp "github.com/aws/smithy-go/transport/http"
 
 	"io"
 	"net/http"
@@ -41,7 +41,7 @@ import (
 	"timestream-prometheus-connector/errors"
 	"timestream-prometheus-connector/timestream"
 
-	"github.com/alecthomas/kingpin/v2"
+	kingpin "github.com/alecthomas/kingpin/v2"
 	"github.com/go-kit/log"
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
@@ -520,27 +520,48 @@ func createWriteHandler(logger log.Logger, writers []writer) func(w http.Respons
 			return
 		}
 		if err := writers[0].Write(context.Background(), &req, awsCredentials); err != nil {
-			switch err := err.(type) {
-			case *smithyhttp.ResponseError:
-				http.Error(w, err.Error(), http.StatusBadRequest)
-			case *wtypes.RejectedRecordsException:
-				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
-			case *smithy.OperationError:
-				var apiError *smithy.GenericAPIError
-				if goErrors.As(err, &apiError) {
-					http.Error(w, apiError.ErrorMessage(), getHTTPStatusFromSmithyError(apiError))
-					return
-				}
-				http.Error(w, "An unknown service error occurred", http.StatusInternalServerError)
-			case *errors.SDKNonRequestError:
-				http.Error(w, err.Error(), http.StatusBadRequest)
-			case *errors.MissingDatabaseWithWriteError:
-				http.Error(w, err.Error(), http.StatusNotFound)
-			case *errors.MissingTableWithWriteError:
-				http.Error(w, err.Error(), http.StatusNotFound)
-			default:
-				halt(1)
-			}
+			// var resErr smithyhttp.ResponseError
+		    // if goErrors.As(err, &resErr) {
+		    //     http.Error(w, resErr.Error(), http.StatusBadRequest)
+		    //     return
+		    // }
+
+		    var rejectedErr *wtypes.RejectedRecordsException
+		    if goErrors.As(err, &rejectedErr) {
+		        http.Error(w, rejectedErr.Error(), http.StatusUnprocessableEntity)
+		        return
+		    }
+
+		    var opErr *smithy.OperationError
+		    if goErrors.As(err, &opErr) {
+		        var apiErr *smithy.GenericAPIError
+		        if goErrors.As(err, &apiErr) {
+		            http.Error(w, apiErr.ErrorMessage(), getHTTPStatusFromSmithyError(apiErr))
+		            return
+		        }
+		        http.Error(w, "An unknown service error occurred", http.StatusInternalServerError)
+		        return
+		    }
+
+		    var sdkNonReqErr *errors.SDKNonRequestError
+		    if goErrors.As(err, &sdkNonReqErr) {
+		        http.Error(w, sdkNonReqErr.Error(), http.StatusBadRequest)
+		        return
+		    }
+
+		    var missingDBErr *errors.MissingDatabaseWithWriteError
+		    if goErrors.As(err, &missingDBErr) {
+		        http.Error(w, missingDBErr.Error(), http.StatusNotFound)
+		        return
+		    }
+
+		    var missingTableErr *errors.MissingTableWithWriteError
+		    if goErrors.As(err, &missingTableErr) {
+		        http.Error(w, missingTableErr.Error(), http.StatusNotFound)
+		        return
+		    }
+
+		    halt(1)
 		}
 
 	}
