@@ -16,21 +16,13 @@ Parameters:
     Type: AWS::EC2::VPC::Id
     Description: The ID of the VPC where resources will be deployed.
 
-  PrivateSubnetId1:
-    Type: AWS::EC2::Subnet::Id
-    Description: ID of first private subnet in VPC.
+  PrivateSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: ID of private subnets in VPC.
 
-  PrivateSubnetId2:
-    Type: AWS::EC2::Subnet::Id
-    Description: ID of second private subnet in VPC.
-
-  PrivateRouteTableId1:
-    Type: String
-    Description: ID of first private route table in VPC.
-
-  PrivateRouteTableId2:
-    Type: String
-    Description: ID of second private route table in VPC.
+  PrivateRouteTableIds:
+    Type: List<String>
+    Description: ID of private route tables in VPC.
 
   VpcCidrIp:
     Description: The CIDR IP range for the VPC.
@@ -49,10 +41,10 @@ Parameters:
     Type: String
     Default: "t4g.micro"
 
-  AmiImageId:
-    Description: The AMI ID for the EC2 instance.
-    Type: AWS::EC2::Image::Id
-    Default: "ami-0b16505c55f9802f9"
+  LatestAmiId:
+    Description: The EC2 instance AMI ID from Parameter Store
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-arm64-gp2'
 
 Resources:
   SSMRole:
@@ -94,12 +86,12 @@ Resources:
     Type: AWS::EC2::Instance
     Properties:
       InstanceType: !Ref InstanceType
-      ImageId: !Ref AmiImageId
+      ImageId: !Ref LatestAmiId
       IamInstanceProfile: !Ref EC2InstanceProfile
       NetworkInterfaces:
         - AssociatePublicIpAddress: false
           DeviceIndex: 0
-          SubnetId: !Ref PrivateSubnetId1
+          SubnetId: !Select [0, !Ref PrivateSubnetIds]
           GroupSet:
             - Ref: EC2InstanceSG
 
@@ -131,9 +123,7 @@ Resources:
       ServiceName: !Sub com.amazonaws.${AWS::Region}.ssm
       VpcId: !Ref VpcId
       VpcEndpointType: Interface
-      SubnetIds:
-        - !Ref PrivateSubnetId1
-        - !Ref PrivateSubnetId2
+      SubnetIds: !Ref PrivateSubnetIds
       SecurityGroupIds:
         - Ref: VPCEndpointInstanceSG
       PrivateDnsEnabled: true
@@ -144,9 +134,7 @@ Resources:
       ServiceName: !Sub com.amazonaws.${AWS::Region}.ec2messages
       VpcId: !Ref VpcId
       VpcEndpointType: Interface
-      SubnetIds:
-        - !Ref PrivateSubnetId1
-        - !Ref PrivateSubnetId2
+      SubnetIds: !Ref PrivateSubnetIds
       SecurityGroupIds:
         - Ref: VPCEndpointInstanceSG
       PrivateDnsEnabled: true
@@ -157,9 +145,7 @@ Resources:
       ServiceName: !Sub com.amazonaws.${AWS::Region}.ssmmessages
       VpcId: !Ref VpcId
       VpcEndpointType: Interface
-      SubnetIds:
-        - !Ref PrivateSubnetId1
-        - !Ref PrivateSubnetId2
+      SubnetIds: !Ref PrivateSubnetIds
       SecurityGroupIds:
         - Ref: VPCEndpointInstanceSG
       PrivateDnsEnabled: true
@@ -169,9 +155,7 @@ Resources:
     Properties:
       ServiceName: !Sub com.amazonaws.${AWS::Region}.timestream.${TimestreamWriteCell}
       VpcId: !Ref VpcId
-      SubnetIds:
-        - !Ref PrivateSubnetId1
-        - !Ref PrivateSubnetId2
+      SubnetIds: !Ref PrivateSubnetIds
       SecurityGroupIds:
         - !Ref VPCEndpointInstanceSG
       PrivateDnsEnabled: true
@@ -182,9 +166,7 @@ Resources:
     Properties:
       ServiceName: !Sub com.amazonaws.${AWS::Region}.timestream.${TimestreamQueryCell}
       VpcId: !Ref VpcId
-      SubnetIds:
-        - !Ref PrivateSubnetId1
-        - !Ref PrivateSubnetId2
+      SubnetIds: !Ref PrivateSubnetIds
       SecurityGroupIds:
         - !Ref VPCEndpointInstanceSG
       PrivateDnsEnabled: true
@@ -196,9 +178,7 @@ Resources:
       ServiceName: !Sub com.amazonaws.${AWS::Region}.s3
       VpcId: !Ref VpcId
       VpcEndpointType: Gateway
-      RouteTableIds:
-        - !Ref PrivateRouteTableId1
-        - !Ref PrivateRouteTableId2
+      RouteTableIds: !Ref PrivateRouteTableIds
 
 Outputs:
   InstanceId:
