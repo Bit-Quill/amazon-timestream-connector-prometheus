@@ -48,14 +48,14 @@ From your existing VPC, you will need the following values:
 - VPC ID: This is the ID of your existing VPC
 - VPC CIDR : This is the CIDR range for your VPC
 - Private Subnet IDs: This is where the EC2 instance and VPC endpoints will be deployed
-- Private Route Table IDs: This is how the [S3 Gateway endpoint](https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-s3.html) will resolve requests
+- Private Route Table ID(s): This is how the [S3 Gateway endpoint](https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-s3.html) will resolve requests
 - Query and Write cells: These are your assigned endpoint cells for Timestream
 
 
 1. From the `privatelink` directory, run the following command to deploy the SAM template:
 
 ```
-sam deploy --parameter-overrides "VpcId=<VPC_ID> VpcCidrIp=<VPC_CIDR_IP> PrivateSubnetId1=<PRIVATE_SUBNET_ID_1> PrivateSubnetId2=<PRIVATE_SUBNET_ID_2> PrivateRouteTableId1=<PRIVATE_ROUTE_TABLE_ID_1> PrivateRouteTableId2=<PRIVATE_ROUTE_TABLE_ID_2> TimestreamQueryCell=<QUERY_CELL> TimestreamWriteCell=<WRITE_CELL>"
+sam deploy --parameter-overrides "VpcId=<VPC_ID> VpcCidrIp=<VPC_CIDR_IP> PrivateSubnetIds=<PRIVATE_SUBNET_ID_1>,<PRIVATE_SUBNET_ID_2> PrivateRouteTableIds=<PRIVATE_ROUTE_TABLE_ID> TimestreamQueryCell=<QUERY_CELL> TimestreamWriteCell=<WRITE_CELL> --region <AWS_REGION>"
 ```
 
 To view the full set of `sam deploy` options see the [sam deploy documentation](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-cli-command-reference-sam-deploy.html).
@@ -76,7 +76,7 @@ Value               i-08a5d7e1700c9be5a
 ------------------------------------------------------------------------------
 ```
 
-3. Start an AWS SSM session, replacing `INSTANCE_ID` with your EC2 instance ID from deployment.
+3. Start an AWS SSM session, replacing `INSTANCE_ID` with your EC2 instance ID from deployment. You can install the [plugin here.](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)
 
 ```shell
 aws ssm start-session --target i-<INSTANCE_ID>
